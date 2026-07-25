@@ -1,16 +1,16 @@
-.PHONY: install lint format typecheck test check clean
+.PHONY: install format format-fix lint typecheck test coverage check clean precommit-install precommit-run
 
 install:
 	pip install -e ".[dev]"
-
-lint:
-	ruff check .
 
 format:
 	ruff format . --check
 
 format-fix:
 	ruff format .
+
+lint:
+	ruff check .
 
 typecheck:
 	mypy .
@@ -24,7 +24,7 @@ coverage:
 check: lint format typecheck test
 
 clean:
-	rm -rf .venv build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache htmlcov
+	rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 precommit-install:
