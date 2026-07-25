@@ -1,0 +1,130 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-rag"
+version = "0.1.0"
+description = "A fully local, privacy-first Retrieval-Augmented Generation system"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = "MIT"
+authors = [
+    { name = "Local RAG Contributors" },
+]
+keywords = ["rag", "llm", "privacy", "local-ai", "ollama"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[project.urls]
+Homepage = "https://github.com/jshn-1128/LOCAL-RAG"
+Repository = "https://github.com/jshn-1128/LOCAL-RAG"
+Documentation = "https://github.com/jshn-1128/LOCAL-RAG"
+
+[project.optional-dependencies]
+dev = [
+    "black>=24.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pre-commit>=3.7.0",
+    "types-requests>=2.32.0",
+    "types-PyYAML>=6.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+extend-exclude = '/(\.git|\.venv|venv|env|build|dist)/'
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+show-fixes = true
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes — errors
+    "E",    # pycodestyle — errors
+    "W",    # pycodestyle — warnings
+    "I",    # isort — import sorting
+    "N",    # pep8-naming — naming conventions
+    "UP",   # pyupgrade — modern syntax
+    "B",    # bugbear — bug detection
+    "SIM",  # simplify — code simplification
+    "ARG",  # flake8-unused-arguments
+]
+ignore = [
+    "E501",    # line-too-long (Black handles this)
+    "B904",    # raise-without-from-inside-except (useful but verbose)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N803", "N806"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unreachable = true
+show_error_codes = true
+ignore_missing_imports = true
+exclude = [
+    '\.venv/',
+    'build/',
+    'dist/',
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "unit: Unit tests (fast, no external dependencies)",
+    "integration: Integration tests (may require external services)",
+    "slow: Tests that are intentionally slow",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*", ".venv/*"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
+
+[tool.coverage.html]
+directory = "htmlcov"
