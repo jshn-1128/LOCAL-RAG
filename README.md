@@ -49,6 +49,7 @@ A production-ready, privacy-first Retrieval-Augmented Generation system that run
 **Phase 2 — Development Standards** ✅
 **Phase 3 — Application Architecture** ✅
 **Phase 4 — Configuration & Logging** ✅
+**Phase 5 — Application Bootstrap** ✅
 
 Current phase focus: implementing application features.
 
@@ -100,12 +101,15 @@ cp .env.example .env
 .env / environment vars
        │
        ▼
-Settings()  ← instantiated ONCE in app.py lifespan
+Settings()  ← instantiated ONCE in lifespan (app.app:lifespan)
        │
        ├──► injected into RAGPipelineFactory
        │         └──► passed to each service constructor
        │
-       └──► stored in app.state for API dependency injection
+       ├──► stored in app.state.settings
+       │         └──► retrieved via get_settings() dependency
+       │
+       └──► passed to setup_logging()
 ```
 
 ## Logging System
@@ -152,6 +156,127 @@ The following libraries are set to `WARNING` level to reduce noise:
 - `httpx`
 - `urllib3`
 - `chromadb`
+
+## Application Bootstrap
+
+### Architecture
+
+The application uses a factory-based bootstrap pattern. No module-level initialization occurs — all state is created during the lifespan context.
+
+```
+app.main:app         ← uvicorn entry point (creates app via factory)
+  │
+  ▼
+create_app()         ← FastAPI factory (no state, no side effects)
+  │
+  ├── register_middleware()    ── 5-layer middleware stack
+  ├── include_router()         ── health, documents, search, chat
+  └── register_error_handlers()── 422, HTTP, 500 handlers
+  │
+  ▼
+lifespan()           ← startup/shutdown lifecycle
+  ├── Settings()               ── config loaded
+  ├── setup_logging()          ── logging configured
+  ├── RAGPipelineFactory()     ── DI graph built
+  ├── app.state.*              ── services registered
+  └── yield                    ── ready for requests
+```
+
+### Application Lifecycle
+
+**Startup sequence** (fail-fast):
+1. `Settings()` — Load configuration from env/.env
+2. `setup_logging(settings)` — Console + rotating file handlers
+3. `RAGPipelineFactory(settings)` — Build dependency graph
+4. Register services in `app.state` — Available via DI
+5. Log startup duration
+6. Server begins accepting requests
+
+**Shutdown sequence** (graceful):
+1. Log shutdown
+2. Yield returns to context manager
+3. Uvicorn drains connections
+4. Process exits
+
+### Running the Application
+
+```bash
+# Development (auto-reload enabled)
+uvicorn app.main:app --reload
+
+# Production
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### Health Endpoint
+
+`GET /health` — Liveness probe returning application metadata:
+
+```json
+{
+    "status": "healthy",
+    "version": "0.1.0",
+    "environment": "development",
+    "timestamp": 1234567890.12,
+    "uptime_seconds": 42.5,
+    "app_name": "Local RAG"
+}
+```
+
+`GET /health/ready` — Readiness probe (for orchestration systems):
+
+```json
+{
+    "status": "ready",
+    "timestamp": 1234567890.12
+}
+```
+
+Future extension points (not implemented yet):
+- LLM health check
+- Vector store health check
+- Embedding service health check
+- Memory health check
+- Disk usage check
+
+### Middleware Stack
+
+Middleware is applied outermost-first. The `X-Request-ID` header is available to all middleware and route handlers via `request.state.request_id`.
+
+| Layer | Middleware | Purpose |
+|-------|-----------|---------|
+| 1 (outermost) | `RequestLoggingMiddleware` | Logs each request with method, path, status, request_id, duration |
+| 2 | `RequestTimingMiddleware` | Adds `X-Process-Time` header |
+| 3 | `RequestIDMiddleware` | Generates UUID4, sets `request.state.request_id`, adds `X-Request-ID` header |
+| 4 | `CORSMiddleware` | Cross-origin support (permissive in dev, tighten for production) |
+| 5 (innermost) | `TrustedHostMiddleware` | Host header validation (permissive in dev) |
+
+### Request ID
+
+Every HTTP request receives a unique UUID4 identifier:
+- Set on `request.state.request_id` — accessible in route handlers
+- Returned as `X-Request-ID` response header — for client tracing
+- Included in all log entries — for server-side correlation
+- Included in all error responses — for error correlation
+
+Designed for future OpenTelemetry integration.
+
+### Error Handling
+
+All error responses follow a consistent JSON structure:
+
+```json
+{
+    "detail": "...",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+| Status | Handler | Behavior |
+|--------|---------|----------|
+| 422 | `RequestValidationError` | Validation details logged, returned to client |
+| 4xx | `HTTPException` | Status code and detail returned with request_id |
+| 500 | `Exception` | Generic message logged, no internal trace leaked |
 
 ## Development Setup
 
@@ -242,6 +367,15 @@ make check  # Runs lint → format check → typecheck → test
 ```
 local-rag/
 ├── app/                # Application source code
+│   ├── api/            # HTTP API layer (routers, middleware, errors, dependencies)
+│   ├── application/    # Application services (chat, ingestion, retrieval)
+│   ├── cli/            # CLI entry point
+│   ├── config/         # Settings, constants, logging configuration
+│   ├── domain/         # Domain models and ports
+│   ├── infrastructure/ # Adapter implementations
+│   ├── pipeline/       # DI composition root (factory)
+│   ├── app.py          # Application factory (create_app, lifespan)
+│   └── main.py         # Uvicorn entry point (app.main:app)
 ├── configs/            # Configuration files
 ├── data/               # Data directory (documents, vector store)
 ├── docs/               # Documentation

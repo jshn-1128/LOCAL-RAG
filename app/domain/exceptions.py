@@ -28,3 +28,17 @@ class RetrievalError(DomainError):
 
 class ConfigurationError(DomainError):
     """Invalid or missing configuration."""
+
+
+class ServiceNotAvailableError(DomainError):
+    """Requested application service is not yet available.
+
+    Raised when a dependency provider is accessed before the service
+    has been initialized (e.g., during early startup or before the
+    implementing milestone). Callers should handle this gracefully
+    with an appropriate HTTP 503 response.
+    """
+
+    def __init__(self, service_name: str) -> None:
+        self.service_name = service_name
+        super().__init__(f"Service not available: {service_name}")

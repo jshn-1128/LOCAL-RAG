@@ -12,8 +12,8 @@ Design:
   - .env file overrides defaults.
 
 Dependency injection:
-  Settings is instantiated EXACTLY ONCE in the composition root (app/app.py:lifespan).
-  All consumers receive Settings through constructor injection.
+  Settings is instantiated EXACTLY ONCE in the composition root (app/app.py:create_app).
+  All consumers receive Settings through constructor injection or app.state.
   No module imports Settings() directly — it must be passed in.
 
 Future milestone: Milestone 5 — Configuration & Logging.
@@ -24,7 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config.constants import (
@@ -33,6 +33,7 @@ from app.config.constants import (
     CHUNK_OVERLAP_MIN,
     CHUNK_SIZE_MAX,
     CHUNK_SIZE_MIN,
+    CORS_MAX_AGE_DEFAULT,
     DEFAULT_DATA_DIR,
     DEFAULT_DOCUMENTS_DIR,
     DEFAULT_LOG_DIR,
@@ -49,6 +50,8 @@ from app.config.constants import (
     LLM_TOP_K_MIN,
     MEMORY_MAX_HISTORY_DEFAULT,
     MEMORY_MAX_HISTORY_MIN,
+    PROCESS_TIME_HEADER_DEFAULT,
+    REQUEST_ID_HEADER_DEFAULT,
 )
 
 
@@ -80,6 +83,32 @@ class Settings(BaseSettings):
     api_host: str = API_DEFAULT_HOST
     api_port: int = Field(default=API_DEFAULT_PORT, ge=1, le=65535)
 
+    # ── HTTP Middleware ──────────────────────────────────────────
+    allowed_hosts: list[str] = Field(
+        default=["*"],
+        description="Allowed Host header values for TrustedHostMiddleware",
+    )
+    cors_origins: list[str] = Field(
+        default=["*"],
+        description="Allowed CORS origins",
+    )
+    cors_methods: list[str] = Field(
+        default=["*"],
+        description="Allowed CORS methods",
+    )
+    cors_headers: list[str] = Field(
+        default=["*"],
+        description="Allowed CORS headers",
+    )
+    cors_allow_credentials: bool = True
+    cors_max_age: int = Field(default=CORS_MAX_AGE_DEFAULT, ge=0)
+    request_id_header: str = REQUEST_ID_HEADER_DEFAULT
+    process_time_header: str = PROCESS_TIME_HEADER_DEFAULT
+    trusted_proxy_support: bool = Field(
+        default=False,
+        description="Placeholder for future trusted proxy support",
+    )
+
     # ── Document Processing / Chunking ──────────────────────────────────────
     chunk_size: int = Field(default=512, ge=CHUNK_SIZE_MIN, le=CHUNK_SIZE_MAX)
     chunk_overlap: int = Field(default=64, ge=CHUNK_OVERLAP_MIN)
@@ -109,6 +138,23 @@ class Settings(BaseSettings):
     memory_max_history: int = Field(
         default=MEMORY_MAX_HISTORY_DEFAULT, ge=MEMORY_MAX_HISTORY_MIN
     )
+
+    # ── Field Validation ──────────────────────────────────────────
+
+    @field_validator("allowed_hosts", "cors_origins", "cors_methods", "cors_headers")
+    @classmethod
+    def _validate_no_empty_strings(cls, v: list[str]) -> list[str]:
+        for item in v:
+            if not item.strip():
+                raise ValueError(f"List item must not be empty: {v}")
+        return v
+
+    @field_validator("request_id_header", "process_time_header")
+    @classmethod
+    def _validate_header_name(cls, v: str) -> str:
+        if not v or " " in v or ":" in v or "\n" in v or "\r" in v:
+            raise ValueError(f"Invalid HTTP header name: {v!r}")
+        return v
 
     # ── Cross-field Validation ──────────────────────────────────────────────
 

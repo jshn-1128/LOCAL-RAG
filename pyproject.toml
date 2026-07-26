@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "fastapi>=0.115.0",
     "pydantic-settings>=2.3.0",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [tool.setuptools.packages]
@@ -44,6 +45,7 @@ dev = [
     "pre-commit>=3.7.0",
     "types-requests>=2.32.0",
     "types-PyYAML>=6.0",
+    "httpx2>=2.9.0",
 ]
 
 [tool.black]

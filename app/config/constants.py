@@ -41,6 +41,11 @@ CHUNK_OVERLAP_MIN: int = 0
 API_DEFAULT_HOST: str = "0.0.0.0"
 API_DEFAULT_PORT: int = 8000
 
+# ── HTTP Middleware ─────────────────────────────────────────────────────────
+CORS_MAX_AGE_DEFAULT: int = 600
+REQUEST_ID_HEADER_DEFAULT: str = "X-Request-ID"
+PROCESS_TIME_HEADER_DEFAULT: str = "X-Process-Time"
+
 # ── LLM ─────────────────────────────────────────────────────────────────────
 LLM_TEMPERATURE_MIN: float = 0.0
 LLM_TEMPERATURE_MAX: float = 2.0
