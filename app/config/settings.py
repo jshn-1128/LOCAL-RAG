@@ -48,6 +48,7 @@ from app.config.constants import (
     LLM_TIMEOUT_MIN,
     LLM_TOP_K_MAX,
     LLM_TOP_K_MIN,
+    MAX_FILE_SIZE_MB_DEFAULT,
     MEMORY_MAX_HISTORY_DEFAULT,
     MEMORY_MAX_HISTORY_MIN,
     PROCESS_TIME_HEADER_DEFAULT,
@@ -107,6 +108,13 @@ class Settings(BaseSettings):
     trusted_proxy_support: bool = Field(
         default=False,
         description="Placeholder for future trusted proxy support",
+    )
+
+    # ── Document Ingestion ──────────────────────────────────────────────────
+    max_file_size_mb: int = Field(
+        default=MAX_FILE_SIZE_MB_DEFAULT,
+        ge=1,
+        description="Maximum uploaded file size in megabytes",
     )
 
     # ── Document Processing / Chunking ──────────────────────────────────────

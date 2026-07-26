@@ -27,7 +27,29 @@ EMBEDDING_MODEL_DIMENSIONS: dict[str, int] = {
     "snowflake-arctic-embed-l": 1024,
 }
 
-# ── Document Processing ─────────────────────────────────────────────────────
+# ── Document Loading ────────────────────────────────────────────────────────
+SUPPORTED_DOCUMENT_EXTENSIONS: set[str] = {
+    ".txt",
+    ".md",
+    ".pdf",
+    ".docx",
+}
+
+DOCX_MIME_TYPE: str = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
+
+TEXT_MIME_TYPES: dict[str, str] = {
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+    ".docx": DOCX_MIME_TYPE,
+}
+
+MAX_FILE_SIZE_MB_DEFAULT: int = 50
+MAX_FILE_SIZE_BYTES_DEFAULT: int = MAX_FILE_SIZE_MB_DEFAULT * 1024 * 1024
+
+# ── Document Processing / Chunking ──────────────────────────────────────
 # Reserved for Milestone 7 (document ingestion):
 # SUPPORTED_DOCUMENT_EXTENSIONS: set[str] = {
 #     ".txt", ".md", ".pdf", ".html", ".htm", ".csv", ".json", ".xml", ".yaml", ".yml",

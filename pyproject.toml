@@ -24,6 +24,8 @@ classifiers = [
 dependencies = [
     "fastapi>=0.115.0",
     "pydantic-settings>=2.3.0",
+    "pypdf>=6.0.0",
+    "python-docx>=1.1.0",
     "uvicorn[standard]>=0.30.0",
 ]
 
@@ -46,6 +48,7 @@ dev = [
     "types-requests>=2.32.0",
     "types-PyYAML>=6.0",
     "httpx2>=2.9.0",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [tool.black]
@@ -109,6 +112,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 addopts = [
     "-v",
     "--tb=short",
@@ -121,6 +125,7 @@ markers = [
     "unit: Unit tests (fast, no external dependencies)",
     "integration: Integration tests (may require external services)",
     "slow: Tests that are intentionally slow",
+    "asyncio: async tests",
 ]
 
 [tool.coverage.run]

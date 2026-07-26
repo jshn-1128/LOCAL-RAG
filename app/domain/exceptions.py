@@ -14,6 +14,26 @@ class DocumentNotFoundError(DomainError):
     """Requested document does not exist."""
 
 
+class UnsupportedDocumentError(DomainError):
+    """Document format or extension is not supported."""
+
+
+class CorruptedDocumentError(DomainError):
+    """Document file is corrupted or invalid."""
+
+
+class InvalidEncodingError(DomainError):
+    """Document encoding could not be determined or is unsupported."""
+
+
+class DocumentTooLargeError(DomainError):
+    """Document exceeds the maximum allowed file size."""
+
+
+class UnreadableDocumentError(DomainError):
+    """Document file cannot be read (permissions, missing, broken symlink)."""
+
+
 class EmbeddingError(DomainError):
     """Embedding generation failed."""
 
