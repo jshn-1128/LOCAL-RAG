@@ -46,7 +46,8 @@ logs/*
 .cache/
 *.cache
 
-# Local vector databases
+# Local data
+data/documents/
 data/vector_store/
 *.db
 *.sqlite

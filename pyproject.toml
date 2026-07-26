@@ -21,8 +21,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-[tool.setuptools.packages.find]
-include = ["app*"]
+dependencies = [
+    "fastapi>=0.115.0",
+    "pydantic-settings>=2.3.0",
+]
+
+[tool.setuptools.packages]
+find = { include = ["app*"] }
 
 [project.urls]
 Homepage = "https://github.com/jshn-1128/LOCAL-RAG"
