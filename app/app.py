@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routes import chat, documents, health, search
+from app.config import setup_logging
 from app.config.settings import Settings
 from app.pipeline.factory import RAGPipelineFactory
 
@@ -20,8 +21,9 @@ from app.pipeline.factory import RAGPipelineFactory
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
-    factory = RAGPipelineFactory(settings)
+    setup_logging(settings)
 
+    factory = RAGPipelineFactory(settings)
     app.state.settings = settings
     app.state.ingestion_service = factory.create_ingestion_service()
     app.state.retrieval_service = factory.create_retrieval_service()
