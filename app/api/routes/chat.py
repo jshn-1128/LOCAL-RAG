@@ -3,13 +3,123 @@ Chat routes.
 
 Purpose: Conversational RAG endpoint.
 Endpoints:
-  POST /chat/          — Send a message and receive an answer.
-  GET  /chat/{id}      — Get conversation history.
-  DELETE /chat/{id}    — Delete a conversation.
-
-Milestone: RAG Pipeline (Milestone 12), Streaming (Milestone 14).
+  POST /chat/          -- Send a message and receive an answer.
+  GET  /chat/{id}      -- Get conversation history.
+  DELETE /chat/{id}    -- Delete a conversation.
 """
 
-from fastapi import APIRouter
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.api.dependencies import get_chat_service
+from app.application.chat.service import ChatService
+from app.domain.models.query import Query
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+class ChatRequest(BaseModel):
+    message: str
+    conversation_id: str | None = None
+    top_k: int = 4
+    temperature: float = 0.7
+    max_tokens: int = 2048
+
+
+class ChatResponse(BaseModel):
+    conversation_id: str
+    answer: str
+    sources: list[dict]
+    model: str
+    estimated_tokens: int
+
+
+class ConversationListItem(BaseModel):
+    id: str
+    title: str | None = None
+    message_count: int
+    created_at: str
+    updated_at: str | None = None
+
+
+@router.get("/")
+async def list_conversations(
+    service: ChatService = Depends(get_chat_service),
+):
+    convs = await service.list_conversations()
+    return {
+        "conversations": [
+            ConversationListItem(
+                id=str(c.id),
+                title=c.metadata.get("title") if c.metadata else None,
+                message_count=len(c.messages),
+                created_at=c.messages[0].timestamp.isoformat() if c.messages else "",
+                updated_at=c.messages[-1].timestamp.isoformat() if c.messages else None,
+            )
+            for c in convs
+        ]
+    }
+
+
+@router.post("/", response_model=ChatResponse)
+async def chat(
+    request: ChatRequest,
+    service: ChatService = Depends(get_chat_service),
+):
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=422, detail="message must not be empty")
+    query = Query(text=request.message, top_k=request.top_k)
+    result = await service.chat(
+        query=query,
+        conversation_id=request.conversation_id,
+        llm_temperature=request.temperature,
+        llm_max_tokens=request.max_tokens,
+    )
+    source_list = list(result.sources)
+    scores_list = result.scores or []
+    return ChatResponse(
+        conversation_id=str(result.conversation_id),
+        answer=result.answer,
+        sources=[
+            {
+                "chunk_id": str(s.id),
+                "document_id": str(s.document_id),
+                "content": s.content,
+                "index": s.index,
+                "score": (
+                    round(float(scores_list[i]), 4) if i < len(scores_list) else None
+                ),
+            }
+            for i, s in enumerate(source_list)
+        ],
+        model=result.model,
+        estimated_tokens=result.prompt_tokens,
+    )
+
+
+@router.get("/{conversation_id}")
+async def get_conversation(
+    conversation_id: str,
+    service: ChatService = Depends(get_chat_service),
+):
+    conv = await service.get_history(conversation_id)
+    if conv is None:
+        return {"status": "not_found", "conversation_id": conversation_id}
+    return {
+        "conversation_id": str(conv.id),
+        "messages": [
+            {"role": m.role, "content": m.content, "timestamp": m.timestamp.isoformat()}
+            for m in conv.messages
+        ],
+    }
+
+
+@router.delete("/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    service: ChatService = Depends(get_chat_service),
+):
+    await service.delete_conversation(conversation_id)
+    return {"status": "deleted", "conversation_id": conversation_id}

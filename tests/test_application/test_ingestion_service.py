@@ -13,12 +13,14 @@ Verifies:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 
 from app.application.ingestion.service import IngestionService
 from app.config.settings import Settings
+from app.domain.models.document import Document
 from app.infrastructure.document_loaders.composite import CompositeDocumentLoader
 from app.infrastructure.document_loaders.text import TextLoader
 
@@ -126,3 +128,103 @@ class TestIngestionService:
         (tmp_path / "good.txt").write_text("good")
         docs = await service.ingest_directory(tmp_path, recursive=False)
         assert len(docs) == 1
+
+
+class TestIngestionServiceDedup:
+    @pytest.fixture
+    def service(self) -> IngestionService:
+        mock_loader = MagicMock()
+        mock_chunker = MagicMock()
+        mock_store = MagicMock()
+        mock_store.save = AsyncMock()
+        mock_store.delete = AsyncMock()
+        mock_embedding = MagicMock()
+        mock_vector = MagicMock()
+        mock_vector.delete_by_document_id = AsyncMock()
+        settings = Settings()
+        svc = IngestionService(
+            document_loader=mock_loader,
+            chunker=mock_chunker,
+            document_store=mock_store,
+            embedding=mock_embedding,
+            vector_store=mock_vector,
+            settings=settings,
+        )
+        return svc
+
+    def _make_doc(
+        self, content: str, checksum: str, source_path: str = "/fake/test.txt"
+    ) -> Document:
+        return Document(
+            content=content,
+            source_path=Path(source_path),
+            filename=Path(source_path).name,
+            title=Path(source_path).stem,
+            checksum=checksum,
+            file_type=".txt",
+            mime_type="text/plain",
+            encoding="utf-8",
+            id=uuid4(),
+        )
+
+    async def test_index_file_skips_unchanged(self, service: IngestionService):
+        doc = self._make_doc("hello", "abc123")
+        existing = self._make_doc("hello", "abc123")
+        existing.id = doc.id
+        service.ingest_file = AsyncMock(return_value=doc)
+        service._document_store.find_by_source_path = AsyncMock(return_value=existing)
+        result = await service.index_file(Path("/fake/test.txt"))
+        assert result.skipped is True
+        assert result.chunk_count == 0
+        service._vector_store.add_chunks.assert_not_called()
+
+    async def test_index_file_reindexes_changed(self, service: IngestionService):
+        old_doc = self._make_doc("old", "old_checksum")
+        new_doc = self._make_doc("new content", "new_checksum")
+        service.ingest_file = AsyncMock(return_value=new_doc)
+        service._document_store.find_by_source_path = AsyncMock(return_value=old_doc)
+        service._chunker.chunk = MagicMock(return_value=[])
+        service._embedding.embed_texts = AsyncMock(return_value=[])
+        result = await service.index_file(Path("/fake/test.txt"))
+        assert result.skipped is False
+        assert result.checksum == "new_checksum"
+        service._vector_store.delete_by_document_id.assert_awaited_once_with(
+            str(old_doc.id)
+        )
+
+    async def test_index_file_new_file(self, service: IngestionService):
+        doc = self._make_doc("new", "chk", "/fake/unknown.txt")
+        service.ingest_file = AsyncMock(return_value=doc)
+        service._document_store.find_by_source_path = AsyncMock(return_value=None)
+        service._chunker.chunk = MagicMock(return_value=[])
+        service._embedding.embed_texts = AsyncMock(return_value=[])
+        result = await service.index_file(Path("/fake/unknown.txt"))
+        assert result.skipped is False
+        assert result.checksum == "chk"
+
+    async def test_index_directory_skips_unchanged(self, service: IngestionService):
+        from unittest.mock import patch
+
+        doc = self._make_doc("content", "chk")
+        service._document_loader.load = AsyncMock(return_value=doc)
+        service._document_store.find_by_source_path = AsyncMock(return_value=doc)
+        service._chunker.chunk = MagicMock(return_value=[])
+        service._embedding.embed_texts = AsyncMock(return_value=[])
+        service._document_loader.supported_extensions = {".txt"}
+        with (
+            patch(
+                "app.application.ingestion.service.scan_directory",
+                return_value=[Path("/fake/test.txt")],
+            ),
+            patch(
+                "app.application.ingestion.service.validate_directory",
+                return_value=Path("/fake"),
+            ),
+            patch(
+                "app.application.ingestion.service.validate_file",
+                return_value=None,
+            ),
+        ):
+            results = await service.index_directory(Path("/fake"), recursive=False)
+        assert len(results) == 1
+        assert results[0].skipped is True

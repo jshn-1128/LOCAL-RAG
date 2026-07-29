@@ -170,12 +170,12 @@ class TestRouterRegistration:
         assert response.status_code in (404, 200)
 
     def test_documents_route_prefix(self, client: TestClient):
-        response = client.get("/documents")
-        assert response.status_code in (404, 405)
+        response = client.get("/documents/")
+        assert response.status_code in (404, 200, 405)
 
     def test_search_route_prefix(self, client: TestClient):
-        response = client.get("/search")
-        assert response.status_code in (404, 405)
+        response = client.get("/search/")
+        assert response.status_code in (404, 200, 405)
 
 
 class TestDependencyInjection:

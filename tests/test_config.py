@@ -46,7 +46,7 @@ class TestSettingsDefaults:
 
     def test_llm_model_default(self) -> None:
         settings = Settings()
-        assert settings.llm_model == "llama3.2"
+        assert settings.llm_model == "gemma3:1b"
 
     def test_top_k_default(self) -> None:
         settings = Settings()

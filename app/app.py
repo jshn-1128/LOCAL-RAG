@@ -6,7 +6,7 @@ This module does not create any application instance at import time.
 Use create_app() to build an instance, or import from app.main for uvicorn.
 
 Startup sequence:
-  1. Settings loaded (Settings() — in create_app or passed in)
+  1. Settings loaded (Settings() -- in create_app or passed in)
   2. Middleware configured with settings (create_app)
   3. Logging initialized (lifespan)
   4. Pipeline factory created (lifespan)
@@ -51,11 +51,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.pipeline_factory = factory
     logger.info("Pipeline factory created")
 
-    # 3. Initialize service slots (None until implementing milestones)
-    app.state.ingestion_service = None
-    app.state.retrieval_service = None
-    app.state.chat_service = None
-    logger.info("Service slots initialized")
+    # 3. Initialize application services
+    app.state.ingestion_service = factory.create_ingestion_service()
+    logger.info("Ingestion service initialized")
+
+    retrieval_service = factory.create_retrieval_service()
+    app.state.retrieval_service = retrieval_service
+    logger.info("Retrieval service initialized")
+
+    app.state.chat_service = factory.create_chat_service(
+        retrieval_service=retrieval_service,
+    )
+    logger.info("Chat service initialized")
 
     # 4. Store startup timestamp
     app.state.startup_timestamp = time.time()
@@ -66,7 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # ── Shutdown ──────────────────────────────────────────
+    # -- Shutdown -------------------------------------------------
     shutdown_time = time.perf_counter()
     logger.info("Application shutting down...")
     logger.info(

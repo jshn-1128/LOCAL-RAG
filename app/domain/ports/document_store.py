@@ -23,3 +23,9 @@ class DocumentStorePort(ABC):
 
     @abstractmethod
     async def list_documents(self) -> list[Document]: ...
+
+    @abstractmethod
+    async def find_by_source_path(self, source_path: str) -> Document | None: ...
+
+    @abstractmethod
+    async def find_by_checksum(self, checksum: str) -> list[Document]: ...

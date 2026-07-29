@@ -18,3 +18,13 @@ class LLMPort(ABC):
     async def generate_stream(
         self, prompt: str, **kwargs: object
     ) -> AsyncIterator[str]: ...
+
+    @abstractmethod
+    async def generate_chat(
+        self, messages: list[dict[str, str]], **kwargs: object
+    ) -> str: ...
+
+    @abstractmethod
+    async def generate_chat_stream(
+        self, messages: list[dict[str, str]], **kwargs: object
+    ) -> AsyncIterator[str]: ...

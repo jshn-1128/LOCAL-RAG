@@ -76,7 +76,7 @@ LLM_TOP_K_MIN: int = 1
 LLM_TOP_K_MAX: int = 100
 LLM_TIMEOUT_MIN: int = 1
 LLM_DEFAULT_HOST: str = "http://localhost:11434"
-LLM_DEFAULT_MODEL: str = "llama3.2"
+LLM_DEFAULT_MODEL: str = "gemma3:1b"
 
 # ── Logging ─────────────────────────────────────────────────────────────────
 LOG_FORMAT: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
