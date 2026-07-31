@@ -39,6 +39,39 @@ class GenerationResult:
 
 
 @dataclass
+class ConfidenceInfo:
+    level: str
+    score: float
+    reason: str
+    agreement: float
+    coverage: float
+    num_sources: int
+    unique_documents: int
+    conflicts: list[str] | None = None
+
+
+@dataclass
+class SourceAttribution:
+    chunk_id: UUID
+    document_id: UUID
+    document_filename: str
+    document_type: str
+    chunk_index: int
+    content: str
+    score: float
+    similarity_label: str
+    role: str
+
+
+@dataclass
+class QueryPipelineInfo:
+    original_query: str
+    rewritten_query: str | None = None
+    top_k: int = 4
+    num_results: int = 0
+
+
+@dataclass
 class ChatResult:
     query_id: UUID
     conversation_id: UUID
@@ -47,3 +80,6 @@ class ChatResult:
     model: str
     prompt_tokens: int = 0
     scores: list[float] | None = None
+    confidence: ConfidenceInfo | None = None
+    attributed_sources: list[SourceAttribution] | None = None
+    pipeline: QueryPipelineInfo | None = None

@@ -48,9 +48,7 @@ class RecursiveChunker(ChunkerPort):
                 index += 1
             if end >= len(text):
                 break
-            start = end - self._chunk_overlap
-            if start < 0:
-                start = 0
+            start = max(end - self._chunk_overlap, start + 1)
 
         return chunks
 

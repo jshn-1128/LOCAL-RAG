@@ -54,13 +54,15 @@ class ChromaVectorStore(VectorStorePort):
             chunk_id = str(chunk.id)
             ids.append(chunk_id)
             documents.append(chunk.content)
-            metadatas.append(
-                {
-                    "document_id": str(chunk.document_id),
-                    "chunk_index": chunk.index,
-                    **({"source": str(chunk.metadata)} if chunk.metadata else {}),
-                }
-            )
+            meta: dict[str, str | int] = {
+                "document_id": str(chunk.document_id),
+                "chunk_index": chunk.index,
+            }
+            if chunk.metadata:
+                for key in ("filename", "file_type", "source_path"):
+                    if key in chunk.metadata:
+                        meta[key] = str(chunk.metadata[key])
+            metadatas.append(meta)
 
         collection.add(
             ids=ids,

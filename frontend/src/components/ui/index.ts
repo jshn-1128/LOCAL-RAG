@@ -7,3 +7,4 @@ export { GlassProgress } from "./glass-progress";
 export { GlassSelect } from "./glass-select";
 export { GlassSwitch } from "./glass-switch";
 export { GlassSlider } from "./glass-slider";
+export { GlassTooltip } from "./glass-tooltip";

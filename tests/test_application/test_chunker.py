@@ -62,6 +62,16 @@ class TestRecursiveChunker:
         assert len(chunks) > 1
         assert all(c.content.strip() for c in chunks)
 
+    def test_chunk_short_boundary_does_not_loop_forever(self):
+        chunker = RecursiveChunker(chunk_size=512, chunk_overlap=64)
+        text = "# Heading\n\nBrand new unique content " + ("a" * 600)
+        doc = self._make_doc(text)
+        chunks = chunker.chunk(doc)
+        assert len(chunks) > 1
+        for chunk in chunks:
+            assert chunk.content.strip()
+            assert chunk.index >= 0
+
     def test_chunk_preserves_document_id(self):
         chunker = RecursiveChunker(chunk_size=50, chunk_overlap=0)
         doc_id = uuid4()

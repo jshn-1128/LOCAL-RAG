@@ -29,7 +29,7 @@ from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
 from app.api.middleware import register_middleware
-from app.api.routes import chat, documents, health, search
+from app.api.routes import chat, documents, health, ollama, search
 from app.config import Settings, setup_logging
 from app.pipeline.factory import RAGPipelineFactory
 
@@ -112,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(documents.router)
     application.include_router(search.router)
     application.include_router(chat.router)
+    application.include_router(ollama.router)
 
     register_error_handlers(application)
 

@@ -105,9 +105,20 @@ class IngestionService:
 
         return documents
 
+    async def _find_duplicate(
+        self, doc: Document, source_path: str | None = None
+    ) -> Document | None:
+        if source_path is not None:
+            existing = await self._document_store.find_by_source_path(source_path)
+            if existing is not None and existing.checksum == doc.checksum:
+                return existing
+        by_checksum = await self._document_store.find_by_checksum(doc.checksum)
+        return by_checksum[0] if by_checksum else None
+
     async def index_file(self, path: Path) -> IndexingResult:
         doc = await self.ingest_file(path)
-        existing = await self._document_store.find_by_source_path(str(path))
+        resolved = str(path.resolve())
+        existing = await self._document_store.find_by_source_path(resolved)
         if existing is not None:
             if existing.checksum == doc.checksum:
                 logger.info("Skipping unchanged file: %s", path.name)
@@ -120,6 +131,17 @@ class IngestionService:
                 )
             logger.info("File changed, re-indexing: %s", path.name)
             await self.delete_document(str(existing.id))
+        else:
+            duplicate = await self._find_duplicate(doc)
+            if duplicate is not None:
+                logger.info("Skipping duplicate content: %s", path.name)
+                return IndexingResult(
+                    document_id=duplicate.id,
+                    filename=duplicate.filename,
+                    chunk_count=0,
+                    checksum=duplicate.checksum,
+                    skipped=True,
+                )
         return await self._index_document(doc)
 
     async def index_files(self, paths: list[Path]) -> list[IndexingResult]:
@@ -140,7 +162,7 @@ class IngestionService:
         for doc in docs:
             try:
                 existing = await self._document_store.find_by_source_path(
-                    str(doc.source_path)
+                    str(doc.source_path.resolve())
                 )
                 if existing is not None:
                     if existing.checksum == doc.checksum:
@@ -157,6 +179,20 @@ class IngestionService:
                         continue
                     logger.info("File changed, re-indexing: %s", doc.filename)
                     await self.delete_document(str(existing.id))
+                else:
+                    duplicate = await self._find_duplicate(doc)
+                    if duplicate is not None:
+                        logger.info("Skipping duplicate content: %s", doc.filename)
+                        results.append(
+                            IndexingResult(
+                                document_id=duplicate.id,
+                                filename=duplicate.filename,
+                                chunk_count=0,
+                                checksum=duplicate.checksum,
+                                skipped=True,
+                            )
+                        )
+                        continue
                 result = await self._index_document(doc)
                 results.append(result)
             except Exception as exc:
@@ -185,6 +221,12 @@ class IngestionService:
         )
 
         chunks = self._chunker.chunk(doc)
+        for chunk in chunks:
+            chunk.metadata = {
+                "filename": doc.filename,
+                "file_type": doc.file_type,
+                "source_path": str(doc.source_path),
+            }
         logger.debug("Chunked into %s chunks", len(chunks))
 
         chunk_texts = [c.content for c in chunks]

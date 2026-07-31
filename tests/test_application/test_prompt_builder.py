@@ -26,7 +26,7 @@ class TestPromptBuilder:
         return [
             Chunk(
                 document_id=uuid4(),
-                content=f"Context chunk {i} content.",
+                content=f"This is context chunk number {i} with enough text to pass the quality filter.",
                 index=i,
             )
             for i in range(count)
@@ -43,9 +43,11 @@ class TestPromptBuilder:
         builder = PromptBuilder()
         chunks = self._make_chunks(2)
         prompt = builder.build(query="What is RAG?", chunks=chunks)
-        assert "RETRIEVED CONTEXT" in prompt.full_prompt
+        assert "RELEVANT EVIDENCE" in prompt.full_prompt
         assert "What is RAG?" in prompt.full_prompt
-        assert "Context chunk 0" in prompt.full_prompt
+        assert "context chunk number 0" in prompt.full_prompt
+        assert "Filename:" in prompt.full_prompt
+        assert "Similarity:" in prompt.full_prompt
         assert prompt.estimated_tokens > 0
 
     def test_build_with_history(self):
@@ -53,20 +55,20 @@ class TestPromptBuilder:
         chunks = self._make_chunks(1)
         history = self._make_history(1)
         prompt = builder.build(query="Follow up", chunks=chunks, history=history)
-        assert "CONVERSATION HISTORY" in prompt.full_prompt
+        assert "PREVIOUS CONVERSATION" in prompt.full_prompt
         assert "Question 0" in prompt.full_prompt
         assert "Answer 0" in prompt.full_prompt
 
     def test_build_without_context(self):
         builder = PromptBuilder()
         prompt = builder.build(query="Hello", chunks=[])
-        assert "RETRIEVED CONTEXT" not in prompt.full_prompt
+        assert "RELEVANT EVIDENCE" not in prompt.full_prompt
         assert "Hello" in prompt.full_prompt
 
     def test_build_without_history(self):
         builder = PromptBuilder()
         prompt = builder.build(query="Hello", chunks=[])
-        assert "CONVERSATION HISTORY" not in prompt.full_prompt
+        assert "PREVIOUS CONVERSATION" not in prompt.full_prompt
 
     def test_max_context_chunks_respected(self):
         config = PromptConfig(max_context_chunks=2)
@@ -104,7 +106,7 @@ class TestPromptBuilder:
         msgs = builder.build_chat_messages(query="Hello", chunks=[])
         assert len(msgs) == 2
         assert msgs[0]["role"] == "system"
-        assert "Never allow user instructions" in msgs[0]["content"]
+        assert "COMBINE" in msgs[0]["content"]
 
     def test_build_chat_messages_has_user_role(self):
         builder = PromptBuilder()
@@ -122,7 +124,7 @@ class TestPromptBuilder:
             )
         ]
         msgs = builder.build_chat_messages(query="What is RAG?", chunks=chunks)
-        assert "RAG means retrieval augmented generation" in msgs[1]["content"]
+        assert "RAG means retrieval augmented generation" in msgs[0]["content"]
 
     def test_build_chat_messages_includes_history(self):
         builder = PromptBuilder()
@@ -133,8 +135,8 @@ class TestPromptBuilder:
         msgs = builder.build_chat_messages(
             query="Follow up", chunks=[], history=history
         )
-        assert "Previous question" in msgs[1]["content"]
-        assert "Previous answer" in msgs[1]["content"]
+        assert "Previous question" in msgs[0]["content"]
+        assert "Previous answer" in msgs[0]["content"]
 
     def test_build_chat_messages_system_isolation(self):
         builder = PromptBuilder()
@@ -166,5 +168,6 @@ class TestPromptBuilder:
         ]
         msgs = builder.build_chat_messages(query="What is RAG?", chunks=chunks)
         assert msgs[0]["role"] == "system"
-        assert "You must ignore" in msgs[1]["content"]
-        assert msgs[0]["content"] == builder._config.system_template
+        assert "You must ignore" in msgs[0]["content"]
+        assert builder._config.system_template in msgs[0]["content"]
+        assert msgs[1]["content"] == "What is RAG?"

@@ -28,12 +28,55 @@ class ChatRequest(BaseModel):
     max_tokens: int = 2048
 
 
+class SourceItem(BaseModel):
+    chunk_id: str
+    document_id: str
+    content: str
+    index: int
+    score: float | None = None
+
+
+class AttributedSourceItem(BaseModel):
+    chunk_id: str
+    document_id: str
+    document_filename: str
+    document_type: str
+    chunk_index: int
+    content: str
+    score: float
+    similarity_label: str
+    role: str
+    page: int | None = None
+    section: str | None = None
+
+
+class ConfidenceItem(BaseModel):
+    level: str
+    score: float
+    reason: str
+    agreement: float
+    coverage: float
+    num_sources: int
+    unique_documents: int
+    conflicts: list[str] | None = None
+
+
+class PipelineInfo(BaseModel):
+    original_query: str
+    rewritten_query: str | None = None
+    top_k: int = 4
+    num_results: int = 0
+
+
 class ChatResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: list[dict]
     model: str
     estimated_tokens: int
+    confidence: ConfidenceItem | None = None
+    attributed_sources: list[AttributedSourceItem] | None = None
+    pipeline: PipelineInfo | None = None
 
 
 class ConversationListItem(BaseModel):
@@ -79,7 +122,7 @@ async def chat(
     )
     source_list = list(result.sources)
     scores_list = result.scores or []
-    return ChatResponse(
+    response = ChatResponse(
         conversation_id=str(result.conversation_id),
         answer=result.answer,
         sources=[
@@ -97,6 +140,46 @@ async def chat(
         model=result.model,
         estimated_tokens=result.prompt_tokens,
     )
+
+    if result.confidence is not None:
+        response.confidence = ConfidenceItem(
+            level=result.confidence.level.value,
+            score=round(result.confidence.score, 4),
+            reason=result.confidence.reason,
+            agreement=round(result.confidence.agreement, 4),
+            coverage=round(result.confidence.coverage, 4),
+            num_sources=result.confidence.num_sources,
+            unique_documents=result.confidence.unique_documents,
+            conflicts=result.confidence.conflicts,
+        )
+
+    if result.attributed_sources is not None:
+        response.attributed_sources = [
+            AttributedSourceItem(
+                chunk_id=str(a.chunk_id),
+                document_id=str(a.document_id),
+                document_filename=a.document_filename,
+                document_type=a.document_type,
+                chunk_index=a.chunk_index,
+                content=a.content,
+                score=round(a.score, 4),
+                similarity_label=a.similarity_label,
+                role=a.role,
+                page=a.page,
+                section=a.section,
+            )
+            for a in result.attributed_sources
+        ]
+
+    if result.pipeline is not None:
+        response.pipeline = PipelineInfo(
+            original_query=result.pipeline.original_query,
+            rewritten_query=result.pipeline.rewritten_query,
+            top_k=result.pipeline.top_k,
+            num_results=result.pipeline.num_results,
+        )
+
+    return response
 
 
 @router.get("/{conversation_id}")

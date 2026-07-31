@@ -84,14 +84,14 @@ class TestChatService:
         )
 
     async def test_chat_full_flow(self, service: ChatService):
-        result = await service.chat(query=Query(text="Hello"))
+        result = await service.chat(query=Query(text="Summarize the document"))
         assert result.answer == "This is the answer."
         assert result.sources[0].content == "Retrieved context"
         assert result.model == "test-model"
         assert result.prompt_tokens == 7
 
     async def test_chat_creates_new_conversation(self, service: ChatService):
-        result = await service.chat(query=Query(text="Hello"))
+        result = await service.chat(query=Query(text="Summarize the document"))
         assert result.conversation_id is not None
 
     async def test_chat_loads_existing_conversation(
@@ -109,7 +109,7 @@ class TestChatService:
         self, retrieval_service: MagicMock, service: ChatService
     ):
         retrieval_service.retrieve = AsyncMock(side_effect=RetrievalError("No results"))
-        result = await service.chat(query=Query(text="Hello"))
+        result = await service.chat(query=Query(text="Summarize the document"))
         assert "couldn't find enough information" in result.answer
         assert len(result.sources) == 0
         assert result.prompt_tokens == 0
@@ -119,18 +119,18 @@ class TestChatService:
     ):
         llm.generate_chat = AsyncMock(side_effect=RuntimeError("Ollama down"))
         with pytest.raises(LLMError, match="LLM generation failed"):
-            await service.chat(query=Query(text="Hello"))
+            await service.chat(query=Query(text="Summarize the document"))
 
     async def test_chat_persists_conversation(
         self, memory: MagicMock, service: ChatService
     ):
-        await service.chat(query=Query(text="Hello"))
+        await service.chat(query=Query(text="Summarize the document"))
         assert memory.save_conversation.call_count == 1
         saved = memory.save_conversation.call_args[0][0]
         assert isinstance(saved, Conversation)
         assert len(saved.messages) == 2
         assert saved.messages[0].role == "user"
-        assert saved.messages[0].content == "Hello"
+        assert saved.messages[0].content == "Summarize the document"
         assert saved.messages[1].role == "assistant"
         assert saved.messages[1].content == "This is the answer."
 
@@ -143,7 +143,7 @@ class TestChatService:
             memory=memory,
             min_evidence_chunks=5,
         )
-        result = await svc.chat(query=Query(text="Hello"))
+        result = await svc.chat(query=Query(text="Summarize the document"))
         assert "couldn't find enough information" in result.answer
 
     async def test_confidence_gate_rejects_low_score(
@@ -162,7 +162,7 @@ class TestChatService:
             memory=memory,
             min_evidence_score=0.5,
         )
-        result = await svc.chat(query=Query(text="Hello"))
+        result = await svc.chat(query=Query(text="Summarize the document"))
         assert "couldn't find enough information" in result.answer
 
     async def test_confidence_gate_passes_sufficient_evidence(
@@ -175,7 +175,7 @@ class TestChatService:
             min_evidence_chunks=1,
             min_evidence_score=0.0,
         )
-        result = await svc.chat(query=Query(text="Hello"))
+        result = await svc.chat(query=Query(text="Summarize the document"))
         assert "couldn't find enough information" not in result.answer
 
     async def test_get_history(self, memory: MagicMock, service: ChatService):

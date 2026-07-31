@@ -68,6 +68,15 @@ data/vector_store/
 # Jupyter
 .ipynb_checkpoints/
 
+# QA & benchmark artifacts
+qa_*.py
+benchmark_*.json
+test-*.mjs
+*.with_style
+
+# Next.js build output (also frontend/.gitignore)
+.next/
+
 # Coverage
 htmlcov/
 .coverage

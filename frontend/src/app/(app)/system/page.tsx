@@ -23,6 +23,7 @@ const sections = [
     color: "text-primary",
     bg: "bg-primary/10",
     fields: ["status", "version", "uptime", "timestamp"] as const,
+    prefix: "health" as const,
   },
   {
     title: "Ollama",

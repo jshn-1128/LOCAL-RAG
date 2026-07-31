@@ -25,7 +25,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var e=localStorage.getItem("local-rag-settings");if(e){var t=JSON.parse(e);document.documentElement.className=t.theme||"dark"}else{document.documentElement.className="dark"}}catch(e){document.documentElement.className="dark"}})()`,
+          }}
+        />
+      </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}
       >

@@ -2,7 +2,6 @@
 
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
 interface GlassButtonProps
@@ -31,19 +30,19 @@ const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
     ref,
   ) => {
     return (
-      <motion.button
+      <button
         ref={ref}
         type={type}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         aria-label={props["aria-label"] ?? (icon && !children ? tooltip : undefined)}
-        whileHover={{ scale: disabled ? 1 : 1.01 }}
-        whileTap={{ scale: disabled ? 1 : 0.98 }}
+        {...props}
         className={cn(
           "relative inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200",
           "border backdrop-blur-xl",
           "disabled:opacity-50 disabled:cursor-not-allowed",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "hover:scale-[1.01] active:scale-[0.98]",
           size === "sm" && "px-3 py-1.5 text-xs",
           size === "md" && "px-4 py-2 text-sm",
           size === "lg" && "px-6 py-3 text-base",
@@ -64,7 +63,7 @@ const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
           icon
         ) : null}
         {children}
-      </motion.button>
+      </button>
     );
   },
 );

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
   Trash2,
@@ -12,9 +12,14 @@ import {
   Clock,
   Hash,
   FileUp,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  Info,
 } from "lucide-react";
 import {
   getDocuments,
+  getDocument,
   deleteDocument,
   uploadDocument,
 } from "@/services/api";
@@ -36,6 +41,7 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
 
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["documents"],
@@ -254,51 +260,85 @@ export default function DocumentsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.03 }}
               className={cn(
-                "glass rounded-2xl border transition-all duration-200",
+                "glass rounded-2xl border transition-all duration-200 overflow-hidden",
                 selected.has(doc.id)
                   ? "border-primary/40 bg-primary/5"
                   : "border-glass-border hover:border-muted-foreground/20",
               )}
             >
-              <div className="p-4 flex items-center gap-4">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(doc.id)}
-                    onChange={() => handleSelect(doc.id)}
-                    className="rounded border-glass-border text-primary focus:ring-primary"
-                  />
-                </label>
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 shrink-0">
-                  <FileText className="h-5 w-5 text-primary" />
+              <button
+                onClick={() => setExpandedDoc(expandedDoc === doc.id ? null : doc.id)}
+                className="w-full text-left"
+              >
+                <div className="p-4 flex items-center gap-4">
+                  <label className="flex items-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(doc.id)}
+                      onChange={() => handleSelect(doc.id)}
+                      className="rounded border-glass-border text-primary focus:ring-primary"
+                    />
+                  </label>
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 shrink-0">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.filename}</p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {doc.title || "Untitled"}
+                    </p>
+                  </div>
+                  <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
+                    {doc.chunk_count != null && (
+                      <span className="flex items-center gap-1">
+                        <Layers className="h-3 w-3" />
+                        {doc.chunk_count} chunk{doc.chunk_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Hash className="h-3 w-3" />
+                      {doc.checksum ? doc.checksum.slice(0, 8) : "—"}...
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {doc.loaded_at ? formatDate(doc.loaded_at) : "—"}
+                    </span>
+                  </div>
+                  <GlassBadge variant="default" size="sm">
+                    {doc.file_type || "—"}
+                  </GlassBadge>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc.id); }}
+                    className="p-2 rounded-xl text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"
+                    aria-label={`Delete ${doc.filename}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <div className="text-muted-foreground">
+                    {expandedDoc === doc.id ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.filename}</p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {doc.title || "Untitled"}
-                  </p>
-                </div>
-                <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Hash className="h-3 w-3" />
-                    {doc.checksum ? doc.checksum.slice(0, 8) : "—"}...
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {doc.loaded_at ? formatDate(doc.loaded_at) : "—"}
-                  </span>
-                </div>
-                <GlassBadge variant="default" size="sm">
-                  {doc.file_type || "—"}
-                </GlassBadge>
-                <button
-                  onClick={() => setDeleteTarget(doc.id)}
-                  className="p-2 rounded-xl text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"
-                  aria-label={`Delete ${doc.filename}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              </button>
+
+              {/* Expanded detail */}
+              <AnimatePresence>
+                {expandedDoc === doc.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 pt-0 border-t border-glass-border">
+                      <DocumentDetail documentId={doc.id} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
         </div>
@@ -333,6 +373,72 @@ export default function DocumentsPage() {
           </GlassButton>
         </div>
       </GlassDialog>
+    </div>
+  );
+}
+
+function DocumentDetail({ documentId }: { documentId: string }) {
+  const { data: doc, isLoading } = useQuery({
+    queryKey: ["document", documentId],
+    queryFn: () => getDocument(documentId),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="py-4 space-y-2">
+        <div className="h-3 rounded bg-muted/50 animate-pulse w-1/3" />
+        <div className="h-3 rounded bg-muted/50 animate-pulse w-1/2" />
+      </div>
+    );
+  }
+
+  if (!doc) {
+    return (
+      <p className="text-xs text-muted-foreground py-2">Document details unavailable.</p>
+    );
+  }
+
+  const metaItems = [
+    { label: "File type", value: doc.file_type },
+    { label: "MIME type", value: doc.mime_type },
+    { label: "Encoding", value: doc.encoding },
+    ...(doc.word_count != null ? [{ label: "Words", value: String(doc.word_count) }] : []),
+    ...(doc.character_count != null ? [{ label: "Characters", value: String(doc.character_count) }] : []),
+    { label: "Checksum", value: doc.checksum?.slice(0, 16) + "..." },
+    ...(doc.created_at ? [{ label: "Created", value: formatDate(doc.created_at) }] : []),
+    ...(doc.modified_at ? [{ label: "Modified", value: formatDate(doc.modified_at) }] : []),
+    { label: "Loaded", value: formatDate(doc.loaded_at) },
+    ...(doc.source_path ? [{ label: "Source path", value: doc.source_path }] : []),
+  ];
+
+  return (
+    <div className="py-3 space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {metaItems.map((item) => (
+          <div key={item.label} className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              {item.label}
+            </p>
+            <p className="text-xs font-medium truncate">{item.value || "—"}</p>
+          </div>
+        ))}
+      </div>
+
+      {doc.content && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Info className="h-3 w-3 text-muted-foreground" />
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              Content preview
+            </p>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/40 border border-glass-border max-h-32 overflow-y-auto">
+            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-5">
+              {doc.content}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,10 @@ export interface HealthDTO {
   timestamp: number;
   uptime_seconds: number;
   app_name: string;
+  embedding_model: string;
+  llm_model: string;
+  vector_store_type: string;
+  memory_type: string;
 }
 
 export interface DocumentListItemDTO {
@@ -34,6 +38,10 @@ export interface DocumentDetailDTO {
   word_count: number;
   character_count: number;
   loaded_at: string;
+  source_path: string | null;
+  created_at: string | null;
+  modified_at: string | null;
+  content: string | null;
 }
 
 export interface ChatResponseDTO {
@@ -42,6 +50,41 @@ export interface ChatResponseDTO {
   sources: ChunkSourceDTO[];
   model: string;
   estimated_tokens: number;
+  confidence?: ConfidenceDTO | null;
+  attributed_sources?: AttributedSourceDTO[] | null;
+  pipeline?: PipelineInfoDTO | null;
+}
+
+export interface ConfidenceDTO {
+  level: string;
+  score: number;
+  reason: string;
+  agreement: number;
+  coverage: number;
+  num_sources: number;
+  unique_documents: number;
+  conflicts: string[] | null;
+}
+
+export interface AttributedSourceDTO {
+  chunk_id: string;
+  document_id: string;
+  document_filename: string;
+  document_type: string;
+  chunk_index: number;
+  content: string;
+  score: number;
+  similarity_label: string;
+  role: string;
+  page: number | null;
+  section: string | null;
+}
+
+export interface PipelineInfoDTO {
+  original_query: string;
+  rewritten_query: string | null;
+  top_k: number;
+  num_results: number;
 }
 
 export interface ChunkSourceDTO {
@@ -148,6 +191,8 @@ export interface Document {
   mime_type?: string;
   encoding?: string;
   content?: string;
+  word_count?: number;
+  character_count?: number;
   created_at?: string | null;
   modified_at?: string | null;
   chunk_count?: number;
@@ -171,6 +216,9 @@ export interface RetrievalResult {
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  confidence?: ConfidenceDTO | null;
+  attributed_sources?: AttributedSourceDTO[] | null;
+  pipeline?: PipelineInfoDTO | null;
 }
 
 export interface ChatResult {
@@ -180,6 +228,9 @@ export interface ChatResult {
   sources: Chunk[];
   model: string;
   prompt_tokens: number;
+  confidence?: ConfidenceDTO | null;
+  attributed_sources?: AttributedSourceDTO[] | null;
+  pipeline?: PipelineInfoDTO | null;
 }
 
 export interface Conversation {
@@ -211,4 +262,10 @@ export interface Settings {
   top_k: number;
   score_threshold: number;
   preferred_model: string;
+}
+
+export interface OllamaModelsDTO {
+  models: string[];
+  current: string;
+  error?: string;
 }

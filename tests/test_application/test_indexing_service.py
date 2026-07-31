@@ -45,6 +45,7 @@ class TestIndexingService:
         mock_store.save = AsyncMock()
         mock_store.delete = AsyncMock()
         mock_store.find_by_source_path = AsyncMock(return_value=None)
+        mock_store.find_by_checksum = AsyncMock(return_value=[])
         mock_embedding = MagicMock()
         mock_embedding.embed_texts = AsyncMock(return_value=[])
         mock_vector = MagicMock()

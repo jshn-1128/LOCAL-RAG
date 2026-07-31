@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 
+from app.application.chat.router import QueryRouter
 from app.application.chat.service import ChatService
 from app.application.ingestion.service import IngestionService
 from app.application.prompt_builder import PromptBuilder, PromptConfig
@@ -52,6 +53,7 @@ class RAGPipelineFactory:
         self._settings = settings
         self._embedding: SentenceTransformerEmbedding | None = None
         self._vector_store: ChromaVectorStore | None = None
+        self._document_store: FileSystemDocumentStore | None = None
 
     def _get_embedding(self) -> SentenceTransformerEmbedding:
         if self._embedding is None:
@@ -68,6 +70,13 @@ class RAGPipelineFactory:
             )
         return self._vector_store
 
+    def _get_document_store(self) -> FileSystemDocumentStore:
+        if self._document_store is None:
+            self._document_store = FileSystemDocumentStore(
+                base_path=str(self._settings.documents_dir),
+            )
+        return self._document_store
+
     def create_ingestion_service(self) -> IngestionService:
         loaders: list = [
             TextLoader(),
@@ -81,9 +90,7 @@ class RAGPipelineFactory:
             chunk_size=self._settings.chunk_size,
             chunk_overlap=self._settings.chunk_overlap,
         )
-        document_store: FileSystemDocumentStore = FileSystemDocumentStore(
-            base_path=str(self._settings.documents_dir),
-        )
+        document_store = self._get_document_store()
 
         return IngestionService(
             document_loader=composite_loader,
@@ -128,6 +135,8 @@ class RAGPipelineFactory:
             llm=llm,
             memory=memory,
             prompt_builder=prompt_builder,
+            router=QueryRouter(),
             app_name=self._settings.app_name,
             app_version=self._settings.app_version,
+            document_store=self._get_document_store(),
         )

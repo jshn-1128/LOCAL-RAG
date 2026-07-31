@@ -7,6 +7,7 @@ import type {
   Conversation,
   SearchResponse,
   Chunk,
+  OllamaModelsDTO,
 } from "@/types";
 import type {
   HealthDTO,
@@ -98,23 +99,32 @@ export async function getHealth(): Promise<HealthStatus> {
 // ──────────────────────────────────────────────────
 
 export async function getSystemStatus(): Promise<SystemStatus> {
-  const [health, ollama, documents, count] = await Promise.all([
-    getHealth().catch(() => null),
+  const [healthDto, ollama, documents, count] = await Promise.all([
+    request<HealthDTO>("/health").catch<HealthDTO | null>(() => null),
     getOllamaStatus().catch(() => null),
     getDocuments().catch<Document[]>(() => []),
     getVectorCount().catch(() => 0),
   ]);
 
+  const health: HealthStatus = healthDto
+    ? {
+        status: healthDto.status,
+        version: healthDto.version,
+        uptime: healthDto.uptime_seconds,
+        timestamp: healthDto.timestamp,
+      }
+    : { status: "unreachable", version: "?", uptime: 0, timestamp: 0 };
+
   return {
-    health: health || { status: "unreachable", version: "?", uptime: 0, timestamp: 0 },
+    health,
     ollama: ollama || { available: false, model: "?", host: "?" },
     document_count: documents.length,
     vector_count: count,
-    embedding_model: null,
-    llm_model: ollama?.model || null,
-    environment: process.env.NODE_ENV || "development",
-    memory_type: null,
-    vector_store_type: null,
+    embedding_model: healthDto?.embedding_model ?? null,
+    llm_model: healthDto?.llm_model ?? null,
+    environment: healthDto?.environment ?? (process.env.NODE_ENV || "development"),
+    memory_type: healthDto?.memory_type ?? null,
+    vector_store_type: healthDto?.vector_store_type ?? null,
   };
 }
 
@@ -124,15 +134,22 @@ export async function getOllamaStatus(): Promise<{
   host: string;
 }> {
   try {
-    const dto = await request<HealthDTO>("/health");
+    const [dto, models] = await Promise.all([
+      request<HealthDTO>("/health"),
+      getOllamaModels().catch(() => null),
+    ]);
     return {
       available: dto.status === "ok" || dto.status === "healthy",
-      model: localStorage.getItem("preferred_model") || "llama3.2",
-      host: getBaseUrl(),
+      model: models?.current || models?.models?.[0] || "unknown",
+      host: "http://localhost:11434",
     };
   } catch {
     return { available: false, model: "unreachable", host: "?" };
   }
+}
+
+export async function getOllamaModels(): Promise<OllamaModelsDTO> {
+  return request<OllamaModelsDTO>("/ollama/models");
 }
 
 // ──────────────────────────────────────────────────
@@ -161,7 +178,13 @@ export async function getDocument(id: string): Promise<Document | null> {
       mime_type: dto.mime_type,
       checksum: dto.checksum,
       encoding: dto.encoding,
+      word_count: dto.word_count,
+      character_count: dto.character_count,
       loaded_at: dto.loaded_at,
+      source_path: dto.source_path ?? undefined,
+      created_at: dto.created_at ?? undefined,
+      modified_at: dto.modified_at ?? undefined,
+      content: dto.content ?? undefined,
     };
   } catch {
     return null;
@@ -258,6 +281,7 @@ export async function sendChatMessage(
     query: string;
     conversation_id?: string;
     temperature?: number;
+    top_k?: number;
     max_tokens?: number;
   },
   signal?: AbortSignal,
@@ -268,6 +292,7 @@ export async function sendChatMessage(
       message: params.query,
       conversation_id: params.conversation_id,
       temperature: params.temperature,
+      top_k: params.top_k,
       max_tokens: params.max_tokens,
     }),
     signal,
@@ -280,6 +305,9 @@ export async function sendChatMessage(
     sources: dto.sources.map(mapChunkSource),
     model: dto.model,
     prompt_tokens: dto.estimated_tokens,
+    confidence: dto.confidence ?? null,
+    attributed_sources: dto.attributed_sources ?? null,
+    pipeline: dto.pipeline ?? null,
   };
 }
 
@@ -288,6 +316,7 @@ export async function sendChatMessageStream(
     query: string;
     conversation_id?: string;
     temperature?: number;
+    top_k?: number;
     max_tokens?: number;
   },
   onChunk: (chunk: string) => void,
@@ -304,6 +333,7 @@ export async function sendChatMessageStream(
         message: params.query,
         conversation_id: params.conversation_id,
         temperature: params.temperature,
+        top_k: params.top_k,
         max_tokens: params.max_tokens,
         stream: true,
       }),

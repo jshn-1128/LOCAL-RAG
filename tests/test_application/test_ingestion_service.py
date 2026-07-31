@@ -173,6 +173,7 @@ class TestIngestionServiceDedup:
         existing.id = doc.id
         service.ingest_file = AsyncMock(return_value=doc)
         service._document_store.find_by_source_path = AsyncMock(return_value=existing)
+        service._document_store.find_by_checksum = AsyncMock(return_value=[])
         result = await service.index_file(Path("/fake/test.txt"))
         assert result.skipped is True
         assert result.chunk_count == 0
@@ -183,6 +184,7 @@ class TestIngestionServiceDedup:
         new_doc = self._make_doc("new content", "new_checksum")
         service.ingest_file = AsyncMock(return_value=new_doc)
         service._document_store.find_by_source_path = AsyncMock(return_value=old_doc)
+        service._document_store.find_by_checksum = AsyncMock(return_value=[])
         service._chunker.chunk = MagicMock(return_value=[])
         service._embedding.embed_texts = AsyncMock(return_value=[])
         result = await service.index_file(Path("/fake/test.txt"))
@@ -196,6 +198,7 @@ class TestIngestionServiceDedup:
         doc = self._make_doc("new", "chk", "/fake/unknown.txt")
         service.ingest_file = AsyncMock(return_value=doc)
         service._document_store.find_by_source_path = AsyncMock(return_value=None)
+        service._document_store.find_by_checksum = AsyncMock(return_value=[])
         service._chunker.chunk = MagicMock(return_value=[])
         service._embedding.embed_texts = AsyncMock(return_value=[])
         result = await service.index_file(Path("/fake/unknown.txt"))
@@ -208,6 +211,7 @@ class TestIngestionServiceDedup:
         doc = self._make_doc("content", "chk")
         service._document_loader.load = AsyncMock(return_value=doc)
         service._document_store.find_by_source_path = AsyncMock(return_value=doc)
+        service._document_store.find_by_checksum = AsyncMock(return_value=[])
         service._chunker.chunk = MagicMock(return_value=[])
         service._embedding.embed_texts = AsyncMock(return_value=[])
         service._document_loader.supported_extensions = {".txt"}

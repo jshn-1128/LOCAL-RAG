@@ -113,9 +113,15 @@ async def list_documents(
             {
                 "id": str(d.id),
                 "filename": d.filename,
+                "title": d.title,
                 "file_type": d.file_type,
+                "mime_type": d.mime_type,
+                "encoding": d.encoding,
                 "checksum": d.checksum,
+                "source_path": str(d.source_path) if d.source_path else None,
                 "loaded_at": d.loaded_at.isoformat(),
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+                "modified_at": d.modified_at.isoformat() if d.modified_at else None,
             }
             for d in docs
         ]
@@ -149,6 +155,12 @@ async def get_document(
         "word_count": doc.metadata.word_count,
         "character_count": doc.metadata.character_count,
         "loaded_at": doc.loaded_at.isoformat(),
+        "source_path": str(doc.source_path) if doc.source_path else None,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+        "modified_at": doc.modified_at.isoformat() if doc.modified_at else None,
+        "content": (
+            doc.content if len(doc.content) < 5000 else doc.content[:5000] + "..."
+        ),
     }
 
 

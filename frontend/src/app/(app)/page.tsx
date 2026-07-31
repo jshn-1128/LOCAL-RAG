@@ -227,15 +227,16 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recentDocs.map((doc) => (
-                <div
+                <Link
                   key={doc.id}
-                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors"
+                  href="/documents"
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors group cursor-pointer"
                 >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                     <FileText className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
                       {doc.filename}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -245,7 +246,7 @@ export default function DashboardPage() {
                   <GlassBadge variant="default" size="sm">
                     {doc.file_type}
                   </GlassBadge>
-                </div>
+                </Link>
               ))}
             </div>
           )}

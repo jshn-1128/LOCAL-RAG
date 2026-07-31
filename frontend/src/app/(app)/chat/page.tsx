@@ -15,6 +15,7 @@ import {
   Copy,
   Check,
   Sparkles,
+  Search,
 } from "lucide-react";
 import {
   getConversations,
@@ -28,9 +29,11 @@ import { GlassBadge } from "@/components/ui/glass-badge";
 import { useChatStore } from "@/stores/chat";
 import { useSettings } from "@/stores/settings";
 import { formatDate, cn } from "@/lib/utils";
-import type { ChatMessage, Chunk } from "@/types";
+import type { ChatMessage, Chunk, AttributedSourceDTO, ConfidenceDTO, PipelineInfoDTO } from "@/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { AnswerFooter } from "@/components/chat/answer-footer";
+import { SearchInspector } from "@/components/chat/search-inspector";
 
 export default function ChatPage() {
   const {
@@ -54,6 +57,7 @@ export default function ChatPage() {
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sources, setSources] = useState<Chunk[]>([]);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -102,6 +106,7 @@ export default function ChatPage() {
       query: string;
       conversation_id?: string;
       temperature?: number;
+      top_k?: number;
       max_tokens?: number;
       signal?: AbortSignal;
     }) => {
@@ -117,6 +122,9 @@ export default function ChatPage() {
         addMessage(useChatStore.getState().activeConversationId!, {
           role: "assistant",
           content: result.answer,
+          confidence: result.confidence,
+          attributed_sources: result.attributed_sources,
+          pipeline: result.pipeline,
         });
         setSources(result.sources);
       }
@@ -159,6 +167,7 @@ export default function ChatPage() {
         query: text,
         conversation_id: convId,
         temperature: settings.temperature,
+        top_k: settings.top_k,
         max_tokens: 2048,
         signal: controller.signal,
       });
@@ -173,6 +182,7 @@ export default function ChatPage() {
       setStreamingContent,
       sendMutation,
       settings.temperature,
+      settings.top_k,
     ],
   );
 
@@ -273,7 +283,7 @@ export default function ChatPage() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex-1 flex flex-col min-w-0", inspectorOpen && "hidden lg:flex")}>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -312,42 +322,52 @@ export default function ChatPage() {
                         <Sparkles className="h-4 w-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <GlassCard className="p-4 prose prose-sm dark:prose-invert max-w-none">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              pre: ({ children }) => (
-                                <pre className="border border-glass-border rounded-xl overflow-hidden">
-                                  {children}
-                                </pre>
-                              ),
-                              code: ({
-                                className,
-                                children,
-                                ...props
-                              }) => {
-                                const isInline = !className;
-                                if (isInline) {
-                                  return (
-                                    <code
-                                      className="px-1.5 py-0.5 rounded-md bg-muted text-sm"
-                                      {...props}
-                                    >
-                                      {children}
-                                    </code>
-                                  );
-                                }
-                                return (
-                                  <code
-                                    className="block p-4 overflow-x-auto text-sm"
-                                    {...props}
-                                  >
+                          <GlassCard className="p-4 prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                pre: ({ children }) => (
+                                  <pre className="border border-glass-border rounded-xl overflow-hidden relative group/pre">
                                     {children}
-                                  </code>
-                                );
-                              },
-                            }}
-                          >
+                                  </pre>
+                                ),
+                                code: ({
+                                  className,
+                                  children,
+                                  ...props
+                                }) => {
+                                  const match = /language-(\w+)/.exec(className || "");
+                                  const isInline = !className;
+                                  if (isInline) {
+                                    return (
+                                      <code
+                                        className="px-1.5 py-0.5 rounded-md bg-muted text-sm"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                  return (
+                                    <div className="relative">
+                                      {match && (
+                                        <div className="flex items-center justify-between px-4 py-1.5 border-b border-glass-border bg-muted/30">
+                                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                            {match[1]}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <code
+                                        className="block p-4 overflow-x-auto text-sm"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </code>
+                                    </div>
+                                  );
+                                },
+                              }}
+                            >
                             {msg.content}
                           </ReactMarkdown>
                         </GlassCard>
@@ -376,94 +396,13 @@ export default function ChatPage() {
                           )}
                         </div>
 
-                        {/* Sources */}
-                        {i === messages.length - 1 && sources.length > 0 && (
-                          <div className="mt-3 space-y-1.5">
-                            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                              <FileText className="h-3 w-3" />
-                              Sources ({sources.length})
-                            </p>
-                            {sources.slice(0, 3).map((src, si) => (
-                              <div key={src.id} className="text-xs">
-                                <button
-                                  onClick={() =>
-                                    setExpandedSource(
-                                      expandedSource === src.id
-                                        ? null
-                                        : src.id,
-                                    )
-                                  }
-                                  className="flex items-center gap-1.5 w-full text-left p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                                >
-                                  {expandedSource === src.id ? (
-                                    <ChevronDown className="h-3 w-3 shrink-0" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3 shrink-0" />
-                                  )}
-                                  <span className="text-muted-foreground truncate flex-1">
-                                    Source {si + 1}
-                                  </span>
-                                  {src.score != null && src.score > 0 && (
-                                    <GlassBadge
-                                      size="sm"
-                                      variant={
-                                        src.score > 0.3
-                                          ? "success"
-                                          : src.score > 0.2
-                                            ? "warning"
-                                            : "default"
-                                      }
-                                    >
-                                      {(src.score * 100).toFixed(0)}%
-                                    </GlassBadge>
-                                  )}
-                                </button>
-                                <AnimatePresence>
-                                  {expandedSource === src.id && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      className="overflow-hidden"
-                                    >
-                                      <div className="p-3 ml-5 rounded-lg bg-muted/30 border border-glass-border text-muted-foreground">
-                                        <p className="line-clamp-4 text-xs leading-relaxed">
-                                          {src.content}
-                                        </p>
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                          <GlassBadge size="sm" variant="default">
-                                            #{src.index}
-                                          </GlassBadge>
-                                          {src.score != null && src.score > 0 && (
-                                            <GlassBadge
-                                              size="sm"
-                                              variant={
-                                                src.score > 0.3
-                                                  ? "success"
-                                                  : src.score > 0.2
-                                                    ? "warning"
-                                                    : "default"
-                                              }
-                                            >
-                                              {src.score.toFixed(3)}
-                                            </GlassBadge>
-                                          )}
-                                          <GlassBadge size="sm" variant="default">
-                                            {src.id.slice(0, 8)}
-                                          </GlassBadge>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            ))}
-                            {sources.length > 3 && (
-                              <p className="text-xs text-muted-foreground px-2">
-                                +{sources.length - 3} more sources
-                              </p>
-                            )}
-                          </div>
+                        {/* Answer Footer: confidence + sources */}
+                        {i === messages.length - 1 && (
+                          <AnswerFooter
+                            confidence={(msg as any).confidence as ConfidenceDTO | null | undefined}
+                            attributedSources={(msg as any).attributed_sources as AttributedSourceDTO[] | null | undefined}
+                            onOpenInspector={() => setInspectorOpen(!inspectorOpen)}
+                          />
                         )}
                       </div>
                     </div>
@@ -563,6 +502,39 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Search Inspector Panel */}
+      {inspectorOpen && (
+        <div className="w-80 border-l border-glass-border bg-glass/30 backdrop-blur-xl flex flex-col shrink-0 overflow-y-auto">
+          <div className="p-4 border-b border-glass-border flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Search Inspector
+            </h3>
+            <button
+              onClick={() => setInspectorOpen(false)}
+              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors text-xs"
+            >
+              Close
+            </button>
+          </div>
+          <div className="p-4">
+            {messages.length >= 2 && (() => {
+              const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+              if (!lastAssistant) {
+                return <p className="text-xs text-muted-foreground">No response yet.</p>;
+              }
+              return (
+                <SearchInspector
+                  pipeline={(lastAssistant as any).pipeline as PipelineInfoDTO | null | undefined}
+                  attributedSources={(lastAssistant as any).attributed_sources as AttributedSourceDTO[] | null | undefined}
+                  confidence={(lastAssistant as any).confidence as ConfidenceDTO | null | undefined}
+                />
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

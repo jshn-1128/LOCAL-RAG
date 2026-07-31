@@ -1,19 +1,3 @@
-"""
-Health check routes.
-
-Purpose: Provide liveness and readiness probes for SRE and orchestration.
-Endpoints:
-  GET /health           — Liveness check (server is alive, returns metadata)
-  GET /health/ready     — Readiness check (dependencies ready)
-
-Future extension points (no implementation yet):
-  - LLM health check
-  - Vector store health check
-  - Embedding service health check
-  - Memory health check
-  - Disk usage check
-"""
-
 from __future__ import annotations
 
 import time
@@ -36,6 +20,10 @@ async def health_check(request: Request) -> dict:
         "timestamp": time.time(),
         "uptime_seconds": round(uptime_seconds, 2),
         "app_name": settings.app_name,
+        "embedding_model": settings.embedding_model,
+        "llm_model": settings.llm_model,
+        "vector_store_type": settings.vector_store_type,
+        "memory_type": "sqlite",
     }
 
 

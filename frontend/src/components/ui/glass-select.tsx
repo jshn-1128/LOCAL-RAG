@@ -12,6 +12,7 @@ interface GlassSelectProps {
   placeholder?: string;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export function GlassSelect({
@@ -21,6 +22,7 @@ export function GlassSelect({
   placeholder = "Select...",
   label,
   className,
+  disabled,
 }: GlassSelectProps) {
   return (
     <div className="space-y-1.5">
@@ -29,7 +31,7 @@ export function GlassSelect({
           {label}
         </label>
       )}
-      <Select.Root value={value} onValueChange={onValueChange}>
+      <Select.Root disabled={disabled} value={value} onValueChange={onValueChange}>
         <Select.Trigger
           className={cn(
             "flex h-10 w-full items-center justify-between rounded-xl border bg-glass backdrop-blur-xl px-3 py-2 text-sm",
